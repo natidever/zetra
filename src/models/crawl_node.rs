@@ -1,4 +1,5 @@
-struct CrawlNode{
-    url:String,
-    parent: Option<String>,
+#[derive(Debug,Clone)]
+pub struct CrawlNode{
+   pub url:String,
+    pub parent: Option<String>,
 }

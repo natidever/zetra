@@ -4,20 +4,22 @@
 use crate::models::crawl_node::CrawlNode;
 // Local modules
 
-
-
-
-
-
 use std::collections::{VecDeque,HashSet};
 use scraper::{Html,Selector};
 use url::Url;
+use std::fs;
+use std::time::Instant;
+
 
 
 
 
 
 pub async fn crawl(url:String) -> Result<HashSet<String>, reqwest::Error>{
+    
+    let start =Instant::now();
+
+     let base_url= Url::parse(&url).unwrap();
 
      let mut visit_queue:VecDeque<CrawlNode> = VecDeque::new(); 
 
@@ -28,10 +30,11 @@ pub async fn crawl(url:String) -> Result<HashSet<String>, reqwest::Error>{
         });
 
 
-
+      let mut file_index = 0;
 
       while let Some(node)=visit_queue.pop_front() {
           // if we alredy visited the link
+
           if visited_links.contains(&node.url){
                continue;
           }
@@ -39,8 +42,17 @@ pub async fn crawl(url:String) -> Result<HashSet<String>, reqwest::Error>{
        
 
          
-         let html=fetch_html(&node.url).await?;
-         let extracted_links = extract_links(html);
+         let (raw_html,raw_string)=fetch_html(&node.url).await?;
+         // creating html file 
+         println!("Visiting \u{1F310} {} ", {&node.url});
+         let file_name = format!("page_{}.html",file_index);
+
+         let file_object=fs::write(file_name.to_string(), raw_string).expect("Unable to write");
+         file_index +=1;
+         // 
+
+          
+         let extracted_links = extract_links(raw_html);
          
          for link in extracted_links{
             if !visited_links.contains(&link){
@@ -52,11 +64,20 @@ pub async fn crawl(url:String) -> Result<HashSet<String>, reqwest::Error>{
 
                });
 
-               println!("abs_url {:?} ",abs_url);
+
+               // Avoid crawling external websites 
+
+
+               if base_url.domain()!=abs_url.as_ref().unwrap().domain(){
+
+                  // println!("ExternalURL:{:?}",abs_url);
+                  continue;
+               }
+               // println!("abs_url {:?} ",abs_url.as_ref().unwrap().to_string());
 
                visit_queue.push_back(
                 CrawlNode { 
-                    url: link, 
+                    url: abs_url.unwrap().to_string(), 
                     parent: Some(node.url.clone())
                 }
                );
@@ -64,7 +85,10 @@ pub async fn crawl(url:String) -> Result<HashSet<String>, reqwest::Error>{
 
             }
          }
-
+          
+          if file_index == 5 {
+            break;
+          }
          
 
         
@@ -76,7 +100,7 @@ pub async fn crawl(url:String) -> Result<HashSet<String>, reqwest::Error>{
           
       }
 
-      println!("{:#?}",visit_queue);
+      // println!("{:#?}",visit_queue);
 
 
 
@@ -84,6 +108,8 @@ pub async fn crawl(url:String) -> Result<HashSet<String>, reqwest::Error>{
 
 
 // println!("body = {body:?}");
+println!("Total Elapased Time {:?}",start.elapsed());
+
 Ok(visited_links)
 
 
@@ -103,19 +129,21 @@ Ok(visited_links)
 
 
   
-async fn fetch_html (url:&str)-> Result<Html,reqwest::Error>{
+async fn fetch_html (url:&str)-> Result<(Html,String),reqwest::Error>{
 
 
-    let body = reqwest::get(url)
+    let string_body = reqwest::get(url)
     .await?
     .text()
     .await?;
     
-   let framgmnet = Html::parse_fragment(&body);
+   let framgmnet = Html::parse_fragment(&string_body);
 
-   println!("Fragments: {:?}",framgmnet);
+ 
+
+   // println!("Fragments: {:?}",framgmnet);
    
-   Ok(framgmnet)
+   Ok((framgmnet,string_body))
    
 }
 
@@ -128,7 +156,7 @@ pub fn extract_links(framgmnet:Html)->HashSet<String> {
    for link in framgmnet.select(&selector){
       if let Some(n)=link.value().attr("href"){
           links.insert(n.to_string());
-         println!("link:{}",n);
+         // println!("link:{}",n);
       }
         
    }

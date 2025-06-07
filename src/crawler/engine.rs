@@ -12,10 +12,10 @@ use std::time::Instant;
 
 
 
+   //  Threaded(crawl)
 
 
-
-pub async fn crawl(url:String) -> Result<HashSet<String>, reqwest::Error>{
+pub async fn crawl(url:String) -> Result<HashSet<String>, reqwest::Error> { 
     
     let start =Instant::now();
 
@@ -23,7 +23,10 @@ pub async fn crawl(url:String) -> Result<HashSet<String>, reqwest::Error>{
 
      let mut visit_queue:VecDeque<CrawlNode> = VecDeque::new(); 
 
-       let visited_links:HashSet<String> = HashSet::new();
+   let visited_links:HashSet<String> = HashSet::new();
+
+
+
         visit_queue.push_back(CrawlNode {
         url: url.to_string(),
         parent: None,
@@ -32,17 +35,16 @@ pub async fn crawl(url:String) -> Result<HashSet<String>, reqwest::Error>{
 
       let mut file_index = 0;
 
+
       while let Some(node)=visit_queue.pop_front() {
-          // if we alredy visited the link
+          // if we alredy visited the linkb
 
           if visited_links.contains(&node.url){
                continue;
           }
-
-       
-
-         
+      
          let (raw_html,raw_string)=fetch_html(&node.url).await?;
+
          // creating html file 
          println!("Visiting \u{1F310} {} ", {&node.url});
          let file_name = format!("page_{}.html",file_index);
@@ -63,11 +65,7 @@ pub async fn crawl(url:String) -> Result<HashSet<String>, reqwest::Error>{
                Url::parse(&node.url).and_then(|base| base.join(&link))
 
                });
-
-
                // Avoid crawling external websites 
-
-
                if base_url.domain()!=abs_url.as_ref().unwrap().domain(){
 
                   // println!("ExternalURL:{:?}",abs_url);
@@ -108,18 +106,9 @@ pub async fn crawl(url:String) -> Result<HashSet<String>, reqwest::Error>{
 
 
 // println!("body = {body:?}");
-println!("Total Elapased Time {:?}",start.elapsed());
+println!("No thread {:?}",start.elapsed());
 
 Ok(visited_links)
-
-
-
-
-
-
-
-
-
 
 
 

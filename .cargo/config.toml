@@ -1,5 +1,5 @@
 [alias]
-runz=" run --bin zetra"
+runz="run --bin zetra"
 
 [build]
 rustflags = ["-Awarnings"]

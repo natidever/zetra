@@ -84,7 +84,7 @@ pub async fn crawl(url:String) -> Result<HashSet<String>, reqwest::Error> {
             }
          }
           
-          if file_index == 5 {
+          if file_index == 20 {
             break;
           }
          

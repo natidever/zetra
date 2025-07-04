@@ -3,60 +3,59 @@ use std::sync::atomic::{AtomicUsize,Ordering};
 use scraper::{Html, Selector};
 use::tokio::sync::{mpsc,Mutex};
 use std::time::{Instant};
+use tokio::task::JoinSet;
 
 use crate::models::crawl_node::CrawlNode;
 // use url::Url;
 use url::Url;
 
+use tokio::task;
 
 
 
-
-
-
-pub async fn crawl(url:String)-> Result<HashSet<String>, reqwest::Error>{
+pub async fn crawl(url: String) -> Result<HashSet<String>, reqwest::Error> {
     let start = Instant::now();
 
     let visited_links = Arc::new(Mutex::new(HashSet::new()));
-    let (tx,mut rx)= mpsc::channel::<CrawlNode>(100);
-    let base_url= Url::parse(&url).unwrap();
+    let (tx, mut rx) = mpsc::channel::<CrawlNode>(100);
+    let base_url = Url::parse(&url).unwrap();
     let counter = Arc::new(AtomicUsize::new(0));
+    let page_limit = 100;
 
-    let page_limit=5;
-
-    // Send the initial URL to start crawling
     let initial_node = CrawlNode {
         url: url.clone(),
         parent: None,
     };
+    tx.send(initial_node).await.unwrap();
 
-    let _ = tx.send(initial_node).await;
-
-
-    while let Some(node)=rx.recv().await {
+    while let Some(node) = rx.recv().await {
         let visited_links = Arc::clone(&visited_links);
-        let tx=tx.clone();
-        let base_url =base_url.clone();
+        let tx = tx.clone();
+        let base_url = base_url.clone();
         let counter = Arc::clone(&counter);
 
-        tokio::spawn(async move {
-            let count = counter.fetch_add(1, Ordering::SeqCst);
-
-            if count >= page_limit {
-                return;
+        // 🔒 Check + insert visited inside lock to avoid duplicate crawls
+        let should_crawl = {
+            let mut visited = visited_links.lock().await;
+            if visited.contains(&node.url) || counter.load(Ordering::SeqCst) >= page_limit {
+                false
+            } else {
+                visited.insert(node.url.clone());
+                counter.fetch_add(1, Ordering::SeqCst);
+                true
             }
-            let mut visited  = visited_links.lock().await;
+        };
 
-            if visited.contains(&node.url) {
-                return;
-            }
+        if !should_crawl {
+            continue;
+        }
 
-            visited.insert(node.url.clone());
-            let Ok((raw_html, raw_string)) = fetch_html(&node.url).await else { return; };
-
-            println!("Visiting 🌐 {}", &node.url);
+        // Only crawl if the link hasn't been visited and we're under limit
+        task::spawn(async move {
+            println!("Visiting🌐 {}", &node.url);
+            let Ok((raw_html, _)) = fetch_html(&node.url).await else { return; };
             let links = extract_links(raw_html);
- 
+
             for link in links {
                 let abs_url = Url::parse(&link).or_else(|_| {
                     Url::parse(&node.url).and_then(|base| base.join(&link))
@@ -68,20 +67,27 @@ pub async fn crawl(url:String)-> Result<HashSet<String>, reqwest::Error>{
                             url: abs.to_string(),
                             parent: Some(node.url.clone()),
                         };
+                        // ⚠️ Don’t block if channel is closed
                         let _ = tx.send(new_node).await;
                     }
                 }
             }
         });
+        
+        // ✅ Exit condition: limit reached
+        if counter.load(Ordering::SeqCst) >= page_limit {
+            break;
+        }
     }
 
+    // Allow final tasks to complete (optional delay or task tracking)
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+
     let visited = visited_links.lock().await;
-    let elapsed_time = start.elapsed();
-    print!("With thread:{:?}",elapsed_time);
+    println!("Crawled {} pages in {:?}", visited.len(), start.elapsed());
+
     Ok(visited.clone())
 }
-
-
 
 
 async fn fetch_html (url:&str)-> Result<(Html,String),reqwest::Error>{
@@ -119,3 +125,13 @@ pub fn extract_links(framgmnet:Html)->HashSet<String> {
   links
 
 }
+
+
+
+
+
+
+
+
+
+

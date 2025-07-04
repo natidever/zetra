@@ -1,21 +1,20 @@
-//     // Top Level Directory
+// //     // Top Level Directory
 
 mod models;
 mod crawler;
 
 
 // use models::crawl_node::CrawlNode;
-// // use crawler::engine::{extract_links,crawl,};
-// use crawler::threaded_engine::{crawl};
+// use crawler::engine::{extract_links,crawl,};
 
 
 
 
-// use tokio;
-// use reqwest;
-// use scraper::{Html,Selector };
+use tokio;
+use reqwest;
+use scraper::{Html,Selector };
 
-// use crate::crawler::threaded_engine;
+use crate::crawler::threaded_engine;
 
 
 
@@ -23,24 +22,22 @@ mod crawler;
 // #[tokio::main]
 // async fn main() {
 
-// //   let body = r#"
-// //         <html>
-// //             <body>
-// //                 <a href="https://example.com">Example</a>
-// //                 <a href="/about">About</a>
-// //             </body>
+//   let body = r#"
+//         <html>
+//             <body>
+//                 <a href="https://example.com">Example</a>
+//                 <a href="/about">About</a>
+//             </body>
 // //         </html>
 // //     "#;
 
 // //  let parsed_html = Html::parse_document(body);
 // //  extract_links(parsed_html);
+//  let gomeraw = crawl("https://www.rust-lang.org/".to_string()).await;
 // //  let gomeraw = crawl("https://www.rust-lang.org/".to_string()).await;
-// //  let gomeraw = crawl("https://www.rust-lang.org/".to_string()).await;
 
 
-// //  println!("Gomeraw: {:?} ",{gomeraw})
-
-
+//  println!("Gomeraw: {:?} ",{gomeraw});
 
 
 
@@ -59,7 +56,9 @@ mod crawler;
 
 
 
-//   let start_url = "https://www.rust-lang.org/".to_string();
+
+
+// //   let start_url = "https://www.rust-lang.org/".to_string();
 
 //       let start_url = "https://www.rust-lang.org/".to_string();
 
@@ -86,11 +85,32 @@ use crawler::threaded_engine::{crawl};
 
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Starting....");
-    let start_url = "https://www.rust-lang.org/".to_string();
+    // let start_url = "https://www.rust-lang.org/".to_string();
+    let start_url = "https://jiji.com.et/".to_string();
 
+
+    
     let visited = crawl(start_url).await?;  // Use ? to unwrap or return error early
 
     println!("Crawled {} pages.", visited.len());
 
     Ok(())
 }
+
+
+
+
+
+
+
+// Benchmark for with thread(green) and no thread
+
+// with thread
+// Crawled 20 pages in 9.185271777s
+
+
+
+
+
+// No thread 122.100311041s
+// No thread 158.0846338s

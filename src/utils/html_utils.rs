@@ -7,11 +7,10 @@ use tokio::sync::Mutex;
 
   pub async fn first_page_analysis(is_first_page_analyised: &Arc<Mutex<bool>>, html_str: &str)->Option<String> {
 
-    
+    println!("Analyzing first page...");
 
      let mut analyzed: tokio::sync::MutexGuard<'_, bool> =is_first_page_analyised.lock().await;
     
-
 
 
     if !*analyzed{
@@ -62,7 +61,7 @@ use tokio::sync::Mutex;
 pub fn analyze_title(html:&Html)->Option<String>{
     // send recommendation based on 
     // simple title tag analysis should be between 50-60 characters
-    println!("Analyzing title...");
+    
 
     let title_selector = Selector::parse("title").unwrap();
     if let Some(title_selector)=html.select(&title_selector).next(){

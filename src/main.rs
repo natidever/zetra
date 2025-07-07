@@ -5,6 +5,12 @@ mod crawler;
 mod utils;
 mod constants;
 mod config;
+mod routers;
+
+
+mod error;
+
+
 // use models::crawl_node::CrawlNode;
 // use crawler::engine::{extract_links,crawl,};
 
@@ -13,11 +19,13 @@ mod config;
 
 use std::sync::{Arc, Mutex};
 
+use axum::{routing::get, Router};
 use tokio;
 use reqwest;
 use scraper::{Html,Selector };
 
 use crate::crawler::threaded_engine;
+use crate::routers::analyze_site::root;
 
 
 
@@ -89,13 +97,23 @@ use crawler::threaded_engine::{crawl};
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Starting....");
     // let start_url = "https://www.rust-lang.org/".to_string();
-    let start_url = "https://jiji.com.et/".to_string();
+    // let start_url = "https://jiji.com.et/".to_string();
+
+    let app  = Router::new().
+    route("/", get(root))
+    .merge(routers::analyze_site::routes());
+
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+    axum::serve(listener, app).await.unwrap();
+
+
+
 
 
     
-    let visited = crawl(start_url).await?;  // Use ? to unwrap or return error early
-
-    println!("Crawled {} pages.", visited.len());
+    // let visited = crawl(start_url).await?;  // Use ? to unwrap or return error early
+    
+    
 
     Ok(())
 }

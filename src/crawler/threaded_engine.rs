@@ -6,6 +6,9 @@ use std::time::{Instant};
 use tokio::task::JoinSet;
 
 use crate::models::crawl_node::CrawlNode;
+use crate::config::crawler_config::CrawlerConfig;
+
+use crate::utils::html_utils::first_page_analysis;
 // use url::Url;
 use url::Url;
 // 
@@ -13,7 +16,13 @@ use tokio::task;
 
 
 
+
+
 pub async fn crawl(url: String) -> Result<HashSet<String>, reqwest::Error> {
+
+     let crawl_confg=CrawlerConfig::default();
+
+
     let start = Instant::now();
 
     let visited_links = Arc::new(Mutex::new(HashSet::new()));
@@ -23,7 +32,7 @@ pub async fn crawl(url: String) -> Result<HashSet<String>, reqwest::Error> {
     let (tx, mut rx) = mpsc::channel::<CrawlNode>(100);
     let base_url = Url::parse(&url).unwrap();
     let counter = Arc::new(AtomicUsize::new(0));
-    let page_limit = 100;
+    let page_limit = crawl_confg.page_limt;
 
     let initial_node = CrawlNode {
         url: url.clone(),
@@ -54,14 +63,21 @@ pub async fn crawl(url: String) -> Result<HashSet<String>, reqwest::Error> {
         if !should_crawl {
             continue;
         }
-
+        let is_fp_analyzd=is_first_page_analyised.clone();
         // Only crawl if the link hasn't been visited and we're under limit
         task::spawn(async move {
             println!("Visiting🌐 {}", &node.url);
             
-            let Ok((raw_html, string_format)) = fetch_html(&node.url).await else { return; };
+            let Ok((string_format)) = fetch_html(&node.url).await else { return; };
+            
 
-            first_page_analysis(&string_format);
+       
+           first_page_analysis(&is_fp_analyzd,&string_format).await;
+
+           let raw_html = Html::parse_document(&string_format);
+
+
+            
 
             
            
@@ -110,7 +126,7 @@ pub async fn crawl(url: String) -> Result<HashSet<String>, reqwest::Error> {
 }
 
 
-async fn fetch_html (url:&str)-> Result<(Html,String),reqwest::Error>{
+async fn fetch_html (url:&str)-> Result<String ,reqwest::Error>{
 
 
     let string_body = reqwest::get(url)
@@ -126,7 +142,7 @@ async fn fetch_html (url:&str)-> Result<(Html,String),reqwest::Error>{
 
    // println!("Fragments: {:?}",framgmnet);
    
-   Ok((framgmnet,string_body))
+   Ok((string_body))
    
 }
 
@@ -162,44 +178,3 @@ pub fn extract_links(framgmnet: Html)->HashSet<String> {
 
 
 
-fn first_page_analysis(html_str:&str)->Option<String> {
-
-    let html = Html::parse_document(html_str);
-
-
-
-    // title 
-    let title_selector = Selector::parse("title").unwrap();
-
-    if let Some(title_selector)=html.select(&title_selector).next(){
-
-        let title_text = title_selector.text().collect::<Vec<_>>().join("");
-        println!("Title: {:?}", title_text);
-        Some(title_text)
-    }else{
-        println!("No title found");
-        None
-    }
-         
-  
-
-
-
-
-    
-    
-
-
-
-    // description 
-
-    // url 
-    // canonical url
-    // h1-h6
-    // meta tags
-
-
-
-    
-
-}

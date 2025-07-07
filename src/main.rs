@@ -2,8 +2,9 @@
 
 mod models;
 mod crawler;
-
-
+mod utils;
+mod constants;
+mod config;
 // use models::crawl_node::CrawlNode;
 // use crawler::engine::{extract_links,crawl,};
 

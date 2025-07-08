@@ -1,0 +1,13 @@
+
+services:
+
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes  # Enable persistence
+    volumes:
+      - redis_data:/data
+
+volumes:
+  redis_data:  # Persistent storage for Redis

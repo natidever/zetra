@@ -1,3 +1,4 @@
+use std::f32::consts::E;
 use std::{collections::HashSet, os::linux::raw, sync::Arc};
 use std::sync::atomic::{AtomicUsize,Ordering};
 use scraper::{Html, HtmlTreeSink, Selector};
@@ -5,6 +6,7 @@ use::tokio::sync::{mpsc,Mutex};
 use std::time::{Instant};
 use tokio::task::JoinSet;
 
+use crate::error::Error;
 use crate::models::crawl_node::CrawlNode;
 use crate::config::crawler_config::CrawlerConfig;
 
@@ -13,14 +15,30 @@ use crate::utils::html_utils::first_page_analysis;
 use url::Url;
 // 
 use tokio::task;
+use crate::redis::redis_connection::redis_connection;
+use redis::AsyncCommands;
 
+use crate::constants::string_constants::reids_constants::*;
 
 
 
 
 pub async fn crawl(url: String) -> Result<HashSet<String>, reqwest::Error> {
 
-     let crawl_confg=CrawlerConfig::default();
+
+    let client = redis::Client::open("redis://127.0.0.1/").
+    map_err(|e| Error::RedisError(e)).unwrap();
+
+    let mut redis_connection = redis_connection().await.unwrap();
+
+    // stream 
+     
+            
+     
+
+
+
+    let crawl_confg=CrawlerConfig::default();
 
 
     let start = Instant::now();
@@ -64,6 +82,7 @@ pub async fn crawl(url: String) -> Result<HashSet<String>, reqwest::Error> {
             continue;
         }
         let is_fp_analyzd=is_first_page_analyised.clone();
+        let client=client.clone();
         // Only crawl if the link hasn't been visited and we're under limit
         task::spawn(async move {
             println!("Visiting🌐 {}", &node.url);
@@ -72,7 +91,23 @@ pub async fn crawl(url: String) -> Result<HashSet<String>, reqwest::Error> {
             
 
        
-           first_page_analysis(&is_fp_analyzd,&string_format).await;
+          let page_analysis= first_page_analysis(&is_fp_analyzd,&string_format).await;
+           
+           if let Some(recommendation)=page_analysis{
+
+            let mut redis_connection = client.get_multiplexed_async_connection().await.unwrap();
+            
+            let id :String = redis_connection.xadd(
+            "first_page_crawled"
+            ,"*",&[
+
+            ("first_page_analysis", recommendation.to_string())
+          
+            
+            ]).await.unwrap();
+           }
+            
+          
 
            let raw_html = Html::parse_document(&string_format);
 

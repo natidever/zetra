@@ -1,32 +1,46 @@
-use std::{collections::HashSet, sync::{Arc,}};
+use std::{collections::HashSet, os::linux::raw, sync::Arc};
 use std::sync::atomic::{AtomicUsize,Ordering};
-use scraper::{Html, Selector};
+use scraper::{Html, HtmlTreeSink, Selector};
 use::tokio::sync::{mpsc,Mutex};
 use std::time::{Instant};
 use tokio::task::JoinSet;
 
 use crate::models::crawl_node::CrawlNode;
+use crate::config::crawler_config::CrawlerConfig;
+
+use crate::utils::html_utils::first_page_analysis;
 // use url::Url;
 use url::Url;
-
+// 
 use tokio::task;
 
 
 
+
+
 pub async fn crawl(url: String) -> Result<HashSet<String>, reqwest::Error> {
+
+     let crawl_confg=CrawlerConfig::default();
+
+
     let start = Instant::now();
 
     let visited_links = Arc::new(Mutex::new(HashSet::new()));
+
+    let is_first_page_analyised = Arc::new(Mutex::new(false));
+
     let (tx, mut rx) = mpsc::channel::<CrawlNode>(100);
     let base_url = Url::parse(&url).unwrap();
     let counter = Arc::new(AtomicUsize::new(0));
-    let page_limit = 100;
+    let page_limit = crawl_confg.page_limt;
 
     let initial_node = CrawlNode {
         url: url.clone(),
         parent: None,
     };
     tx.send(initial_node).await.unwrap();
+
+
 
     while let Some(node) = rx.recv().await {
         let visited_links = Arc::clone(&visited_links);
@@ -49,11 +63,33 @@ pub async fn crawl(url: String) -> Result<HashSet<String>, reqwest::Error> {
         if !should_crawl {
             continue;
         }
-
+        let is_fp_analyzd=is_first_page_analyised.clone();
         // Only crawl if the link hasn't been visited and we're under limit
         task::spawn(async move {
             println!("Visiting🌐 {}", &node.url);
-            let Ok((raw_html, _)) = fetch_html(&node.url).await else { return; };
+            
+            let Ok((string_format)) = fetch_html(&node.url).await else { return; };
+            
+
+       
+           first_page_analysis(&is_fp_analyzd,&string_format).await;
+
+           let raw_html = Html::parse_document(&string_format);
+
+
+            
+
+            
+           
+
+
+            
+
+            
+
+            // Extract links from the HTML fragment
+            
+            
             let links = extract_links(raw_html);
 
             for link in links {
@@ -90,7 +126,7 @@ pub async fn crawl(url: String) -> Result<HashSet<String>, reqwest::Error> {
 }
 
 
-async fn fetch_html (url:&str)-> Result<(Html,String),reqwest::Error>{
+async fn fetch_html (url:&str)-> Result<String ,reqwest::Error>{
 
 
     let string_body = reqwest::get(url)
@@ -99,17 +135,19 @@ async fn fetch_html (url:&str)-> Result<(Html,String),reqwest::Error>{
     .await?;
     
    let framgmnet = Html::parse_fragment(&string_body);
+   
+   
 
  
 
    // println!("Fragments: {:?}",framgmnet);
    
-   Ok((framgmnet,string_body))
+   Ok((string_body))
    
 }
 
 
-pub fn extract_links(framgmnet:Html)->HashSet<String> {
+pub fn extract_links(framgmnet: Html)->HashSet<String> {
 
  let mut links:HashSet<String> = HashSet::new();
   let selector = Selector::parse("a").unwrap();
@@ -125,6 +163,11 @@ pub fn extract_links(framgmnet:Html)->HashSet<String> {
   links
 
 }
+
+
+
+
+
 
 
 
